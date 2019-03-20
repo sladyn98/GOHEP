@@ -45,5 +45,7 @@ func main() {
 	fmt.Println("Creating Table reader......")
 	tableReader := rarrow.CreateTableReader(arrowSchema, tree)
 
-	fmt.Println("Reading tables.........")
+	fmt.Println(tableReader)
+
+	fmt.Println("Tables created succesfully")
 }

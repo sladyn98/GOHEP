@@ -14,86 +14,48 @@ import (
 // CreateArrowSchema creates a custom arrow schema from a rtree.Tree object
 func CreateArrowSchema(tree rtree.Tree) *arrow.Schema {
 
-	var arrowFields = []arrow.Field{}
-	var arrowObj = new(arrow.Field)
-	for _, branches := range tree.Branches() {
-		//TODO: select branches based on gotype
+	var fields = make([]arrow.Field, len(tree.Branches()))
+
+	for i, branches := range tree.Branches() {
 		fmt.Println(branches.Name())
 
-		switch branchName := branches.Name(); branchName {
+		switch branches.GoType().Kind() {
 
-		case "Int8":
-			arrowObj.Name = "fi-i8"
-			arrowObj.Type = arrow.PrimitiveTypes.Int8
-			arrowFields = append(arrowFields, *arrowObj)
+		case reflect.Int8:
+			fields[i].Name = branches.Name()
+			fields[i].Type = arrow.PrimitiveTypes.Int8
 
-		case "Int16":
-			arrowObj.Name = "fi-i16"
-			arrowObj.Type = arrow.PrimitiveTypes.Int16
-			arrowFields = append(arrowFields, *arrowObj)
+		case reflect.Int16:
+			fields[i].Name = branches.Name()
+			fields[i].Type = arrow.PrimitiveTypes.Int16
 
-		case "Int32":
-			arrowObj.Name = "fi-i32"
-			arrowObj.Type = arrow.PrimitiveTypes.Int32
-			arrowFields = append(arrowFields, *arrowObj)
+		case reflect.Int32:
+			fields[i].Name = branches.Name()
+			fields[i].Type = arrow.PrimitiveTypes.Int32
 
-		case "Int64":
-			arrowObj.Name = "fi-i64"
-			arrowObj.Type = arrow.PrimitiveTypes.Int64
-			arrowFields = append(arrowFields, *arrowObj)
+		case reflect.Int64:
+			fields[i].Name = branches.Name()
+			fields[i].Type = arrow.PrimitiveTypes.Int64
 
-		case "Uint8":
-			arrowObj.Name = "fi-Ui8"
-			arrowObj.Type = arrow.PrimitiveTypes.Uint8
-			arrowFields = append(arrowFields, *arrowObj)
+		case reflect.Float32:
+			fields[i].Name = branches.Name()
+			fields[i].Type = arrow.PrimitiveTypes.Float32
 
-		case "Uint16":
-			arrowObj.Name = "fi-Ui16"
-			arrowObj.Type = arrow.PrimitiveTypes.Uint16
-			arrowFields = append(arrowFields, *arrowObj)
+		case reflect.Float64:
+			fields[i].Name = branches.Name()
+			fields[i].Type = arrow.PrimitiveTypes.Float64
 
-		case "UInt32":
-			arrowObj.Name = "fi-Ui32"
-			arrowObj.Type = arrow.PrimitiveTypes.Uint32
-			arrowFields = append(arrowFields, *arrowObj)
-
-		case "UInt64":
-			arrowObj.Name = "fi-Ui64"
-			arrowObj.Type = arrow.PrimitiveTypes.Uint64
-			arrowFields = append(arrowFields, *arrowObj)
-
-		case "Float32":
-			arrowObj.Name = "fi-F8"
-			arrowObj.Type = arrow.PrimitiveTypes.Float32
-			arrowFields = append(arrowFields, *arrowObj)
-
-		case "Float64":
-			arrowObj.Name = "fi-F64"
-			arrowObj.Type = arrow.PrimitiveTypes.Float64
-			arrowFields = append(arrowFields, *arrowObj)
-
-		case "Date32":
-			arrowObj.Name = "fi-D32"
-			arrowObj.Type = arrow.PrimitiveTypes.Date32
-			arrowFields = append(arrowFields, *arrowObj)
-
-		case "Date64":
-			arrowObj.Name = "fi-D64"
-			arrowObj.Type = arrow.PrimitiveTypes.Date64
-			arrowFields = append(arrowFields, *arrowObj)
-
-		case "Str":
-			arrowObj.Name = "fi-str"
-			arrowObj.Type = arrow.BinaryTypes.String
-			arrowFields = append(arrowFields, *arrowObj)
+		case reflect.String:
+			fields[i].Name = branches.Name()
+			fields[i].Type = arrow.BinaryTypes.String
 
 		default:
-			fmt.Println("Sorry unmatchable type")
+			panic("unmatched data type")
 		}
 
 	}
 
-	arrowSchema := arrow.NewSchema(arrowFields, nil)
+	arrowSchema := arrow.NewSchema(fields, nil)
 	return arrowSchema
 
 }
@@ -111,19 +73,10 @@ func CreateTableReader(arrowSchema *arrow.Schema, tree rtree.Tree) *array.TableR
 		nt.add(leaf.Name(), leaf)
 	}
 
-	//Create arrays to append to the Record
-
-	var i8array []int8
-	var i16array []int16
-	var i32array []int32
-	var i64array []int64
-	var ui8array []uint8
-	var ui16array []uint16
-	var ui32array []uint32
-	var ui64array []uint64
-	var f32array []float32
-	var f64array []float64
-	var str []string
+	// Create memory pool and record builder
+	pool := memory.NewGoAllocator()
+	recordBuilder := array.NewRecordBuilder(pool, arrowSchema)
+	defer recordBuilder.Release()
 
 	//Scan the n tuples
 	sc, err := rtree.NewTreeScannerVars(tree, nt.args...)
@@ -132,6 +85,7 @@ func CreateTableReader(arrowSchema *arrow.Schema, tree rtree.Tree) *array.TableR
 	}
 	defer sc.Close()
 	nrows := 0
+	index := 0
 	for sc.Next() {
 		err = sc.Scan(nt.vars...)
 		if err != nil {
@@ -140,100 +94,58 @@ func CreateTableReader(arrowSchema *arrow.Schema, tree rtree.Tree) *array.TableR
 
 		for i := range nt.cols {
 			col := &nt.cols[i]
-			fmt.Println("look at the data", col.name)
+			// fmt.Println("look at the data", col.name)
 
 			switch colDataType := col.name; colDataType {
 
 			case "Int8":
-				i8array = append(i8array, col.data.Interface().(int8))
+				recordBuilder.Field(index % len(tree.Branches())).(*array.Int8Builder).Append(col.data.Interface().(int8))
+				index++
 
 			case "Int16":
-				i16array = append(i16array, col.data.Interface().(int16))
+				recordBuilder.Field(index % len(tree.Branches())).(*array.Int16Builder).Append(col.data.Interface().(int16))
+				index++
 
 			case "Int32":
-				i32array = append(i32array, col.data.Interface().(int32))
+				recordBuilder.Field(index % len(tree.Branches())).(*array.Int32Builder).Append(col.data.Interface().(int32))
+				index++
 
 			case "Int64":
-				i64array = append(i64array, col.data.Interface().(int64))
+				recordBuilder.Field(index % len(tree.Branches())).(*array.Int64Builder).Append(col.data.Interface().(int64))
+				index++
 
 			case "UInt8":
-				ui8array = append(ui8array, col.data.Interface().(uint8))
+				recordBuilder.Field(index % len(tree.Branches())).(*array.Int8Builder).Append(int8(col.data.Interface().(int8)))
+				index++
 
 			case "UInt16":
-				ui16array = append(ui16array, col.data.Interface().(uint16))
+				recordBuilder.Field(index % len(tree.Branches())).(*array.Int16Builder).Append(int16(col.data.Interface().(int16)))
+				index++
 
 			case "UInt32":
-				ui32array = append(ui32array, uint32(col.data.Interface().(int32)))
+				recordBuilder.Field(index % len(tree.Branches())).(*array.Int32Builder).Append(int32(col.data.Interface().(int32)))
+				index++
 
 			case "UInt64":
-				ui64array = append(ui64array, uint64(col.data.Interface().(int64)))
+				recordBuilder.Field(index % len(tree.Branches())).(*array.Int64Builder).Append(int64(col.data.Interface().(int64)))
+				index++
 
 			case "Float32":
-				f32array = append(f32array, col.data.Interface().(float32))
+				recordBuilder.Field(index % len(tree.Branches())).(*array.Float32Builder).Append(col.data.Interface().(float32))
+				index++
 
 			case "Float64":
-				f64array = append(f64array, col.data.Interface().(float64))
+				recordBuilder.Field(index % len(tree.Branches())).(*array.Float64Builder).Append(col.data.Interface().(float64))
+				index++
 
 			case "Str":
-				str = append(str, col.data.Interface().(string))
+				recordBuilder.Field(index % len(tree.Branches())).(*array.StringBuilder).Append(col.data.Interface().(string))
+				index++
 
 			}
 
 		}
 		nrows++
-	}
-
-	// Create memory pool and record builder
-	pool := memory.NewGoAllocator()
-	recordBuilder := array.NewRecordBuilder(pool, arrowSchema)
-
-	// Check for empty arrays and append and return record builder.
-
-	index := 0
-
-	if len(i8array) != 0 {
-		recordBuilder.Field(index).(*array.Int8Builder).AppendValues(i8array, nil)
-		index++
-	}
-	if len(i16array) != 0 {
-		recordBuilder.Field(index).(*array.Int16Builder).AppendValues(i16array, nil)
-		index++
-	}
-	if len(i32array) != 0 {
-		recordBuilder.Field(index).(*array.Int32Builder).AppendValues(i32array, nil)
-		index++
-	}
-	if len(i64array) != 0 {
-		recordBuilder.Field(index).(*array.Int64Builder).AppendValues(i64array, nil)
-		index++
-	}
-	if len(ui8array) != 0 {
-		recordBuilder.Field(index).(*array.Uint8Builder).AppendValues(ui8array, nil)
-		index++
-	}
-	if len(ui16array) != 0 {
-		recordBuilder.Field(index).(*array.Uint16Builder).AppendValues(ui16array, nil)
-		index++
-	}
-	if len(ui32array) != 0 {
-		recordBuilder.Field(index).(*array.Uint32Builder).AppendValues(ui32array, nil)
-		index++
-	}
-	if len(ui64array) != 0 {
-		recordBuilder.Field(index).(*array.Uint64Builder).AppendValues(ui64array, nil)
-		index++
-	}
-	if len(f32array) != 0 {
-		recordBuilder.Field(index).(*array.Float32Builder).AppendValues(f32array, nil)
-		index++
-	}
-	if len(f64array) != 0 {
-		recordBuilder.Field(index).(*array.Float64Builder).AppendValues(f64array, nil)
-		index++
-	}
-	if len(str) != 0 {
-		recordBuilder.Field(index).(*array.StringBuilder).AppendValues(str, nil)
-		index++
 	}
 
 	record := recordBuilder.NewRecord()
@@ -251,7 +163,6 @@ func CreateTableReader(arrowSchema *arrow.Schema, tree rtree.Tree) *array.TableR
 	defer table.Release()
 
 	tableReader := array.NewTableReader(table, 5)
-	defer tableReader.Release()
 
 	return tableReader
 }
