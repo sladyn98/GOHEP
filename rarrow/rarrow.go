@@ -16,37 +16,37 @@ func CreateArrowSchema(tree rtree.Tree) *arrow.Schema {
 
 	var fields = make([]arrow.Field, len(tree.Branches()))
 
-	for i, branches := range tree.Branches() {
-		fmt.Println(branches.Name())
+	for i, branch := range tree.Branches() {
+		fmt.Println(branch.Name())
 
-		switch branches.GoType().Kind() {
+		switch branch.GoType().Kind() {
 
 		case reflect.Int8:
-			fields[i].Name = branches.Name()
+			fields[i].Name = branch.Name()
 			fields[i].Type = arrow.PrimitiveTypes.Int8
 
 		case reflect.Int16:
-			fields[i].Name = branches.Name()
+			fields[i].Name = branch.Name()
 			fields[i].Type = arrow.PrimitiveTypes.Int16
 
 		case reflect.Int32:
-			fields[i].Name = branches.Name()
+			fields[i].Name = branch.Name()
 			fields[i].Type = arrow.PrimitiveTypes.Int32
 
 		case reflect.Int64:
-			fields[i].Name = branches.Name()
+			fields[i].Name = branch.Name()
 			fields[i].Type = arrow.PrimitiveTypes.Int64
 
 		case reflect.Float32:
-			fields[i].Name = branches.Name()
+			fields[i].Name = branch.Name()
 			fields[i].Type = arrow.PrimitiveTypes.Float32
 
 		case reflect.Float64:
-			fields[i].Name = branches.Name()
+			fields[i].Name = branch.Name()
 			fields[i].Type = arrow.PrimitiveTypes.Float64
 
 		case reflect.String:
-			fields[i].Name = branches.Name()
+			fields[i].Name = branch.Name()
 			fields[i].Type = arrow.BinaryTypes.String
 
 		default:
@@ -55,8 +55,7 @@ func CreateArrowSchema(tree rtree.Tree) *arrow.Schema {
 
 	}
 
-	arrowSchema := arrow.NewSchema(fields, nil)
-	return arrowSchema
+	return arrow.NewSchema(fields, nil)
 
 }
 
@@ -95,50 +94,50 @@ func CreateTableReader(arrowSchema *arrow.Schema, tree rtree.Tree) *array.TableR
 		for i := range nt.cols {
 			col := &nt.cols[i]
 			// fmt.Println("look at the data", col.name)
+			// fmt.Println("type is ", col.data.Kind())
+			switch colDataType := col.data.Kind(); colDataType {
 
-			switch colDataType := col.name; colDataType {
-
-			case "Int8":
+			case reflect.Int8:
 				recordBuilder.Field(index % len(tree.Branches())).(*array.Int8Builder).Append(col.data.Interface().(int8))
 				index++
 
-			case "Int16":
+			case reflect.Int16:
 				recordBuilder.Field(index % len(tree.Branches())).(*array.Int16Builder).Append(col.data.Interface().(int16))
 				index++
 
-			case "Int32":
+			case reflect.Int32:
 				recordBuilder.Field(index % len(tree.Branches())).(*array.Int32Builder).Append(col.data.Interface().(int32))
 				index++
 
-			case "Int64":
+			case reflect.Int64:
 				recordBuilder.Field(index % len(tree.Branches())).(*array.Int64Builder).Append(col.data.Interface().(int64))
 				index++
 
-			case "UInt8":
-				recordBuilder.Field(index % len(tree.Branches())).(*array.Int8Builder).Append(int8(col.data.Interface().(int8)))
-				index++
+			// case reflect.Uint8:
+			// 	recordBuilder.Field(index % len(tree.Branches())).(*array.Int8Builder).Append(int8(col.data.Interface().(int8)))
+			// 	index++
 
-			case "UInt16":
-				recordBuilder.Field(index % len(tree.Branches())).(*array.Int16Builder).Append(int16(col.data.Interface().(int16)))
-				index++
+			// case reflect.Uint16:
+			// 	recordBuilder.Field(index % len(tree.Branches())).(*array.Int16Builder).Append(int16(col.data.Interface().(int16)))
+			// 	index++
 
-			case "UInt32":
-				recordBuilder.Field(index % len(tree.Branches())).(*array.Int32Builder).Append(int32(col.data.Interface().(int32)))
-				index++
+			// case reflect.Uint32:
+			// 	recordBuilder.Field(index % len(tree.Branches())).(*array.Int32Builder).Append(int32(col.data.Interface().(int32)))
+			// 	index++
 
-			case "UInt64":
-				recordBuilder.Field(index % len(tree.Branches())).(*array.Int64Builder).Append(int64(col.data.Interface().(int64)))
-				index++
+			// case reflect.Uint64:
+			// 	recordBuilder.Field(index % len(tree.Branches())).(*array.Int64Builder).Append(int64(col.data.Interface().(int64)))
+			// 	index++
 
-			case "Float32":
+			case reflect.Float32:
 				recordBuilder.Field(index % len(tree.Branches())).(*array.Float32Builder).Append(col.data.Interface().(float32))
 				index++
 
-			case "Float64":
+			case reflect.Float64:
 				recordBuilder.Field(index % len(tree.Branches())).(*array.Float64Builder).Append(col.data.Interface().(float64))
 				index++
 
-			case "Str":
+			case reflect.String:
 				recordBuilder.Field(index % len(tree.Branches())).(*array.StringBuilder).Append(col.data.Interface().(string))
 				index++
 
