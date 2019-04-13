@@ -19,34 +19,28 @@ func CreateArrowSchema(tree rtree.Tree) *arrow.Schema {
 	for i, branch := range tree.Branches() {
 		fmt.Println(branch.Name())
 
+		fields[i].Name = branch.Name()
 		switch branch.GoType().Kind() {
 
 		case reflect.Int8:
-			fields[i].Name = branch.Name()
 			fields[i].Type = arrow.PrimitiveTypes.Int8
 
 		case reflect.Int16:
-			fields[i].Name = branch.Name()
 			fields[i].Type = arrow.PrimitiveTypes.Int16
 
 		case reflect.Int32:
-			fields[i].Name = branch.Name()
 			fields[i].Type = arrow.PrimitiveTypes.Int32
 
 		case reflect.Int64:
-			fields[i].Name = branch.Name()
 			fields[i].Type = arrow.PrimitiveTypes.Int64
 
 		case reflect.Float32:
-			fields[i].Name = branch.Name()
 			fields[i].Type = arrow.PrimitiveTypes.Float32
 
 		case reflect.Float64:
-			fields[i].Name = branch.Name()
 			fields[i].Type = arrow.PrimitiveTypes.Float64
 
 		case reflect.String:
-			fields[i].Name = branch.Name()
 			fields[i].Type = arrow.BinaryTypes.String
 
 		default:
